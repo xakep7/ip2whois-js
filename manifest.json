@@ -1,15 +1,14 @@
 {
   "name": "Ip2Whois",
   "description": "Get whois info for sites, flags and more. Early Alpha.",
-  "version": "0.4.5",
+  "version": "0.5.0",
    "homepage_url": "https://ip2whois.ru",
   "manifest_version": 3,
   "host_permissions": [
     "*://ip2whois.ru/*",
     "*://cdn.ninja/*",
     "*://*.x-api.net/*",
-    "*://cdnx.su/*",
-    "*://x-api.akamaized.net/*"
+    "*://cdnx.su/*"
   ],
   "permissions": [
     "storage", "activeTab", "scripting", "tabs", "webRequest","unlimitedStorage","system.display","system.cpu","system.memory","system.storage"
