@@ -103,6 +103,7 @@ function bytesToSize(bytes) {
    return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
 }
 var type = "domain";
+var site = "ip2whois.ru";
 function check_domain(check_loc, check_list, counter = 0) {
 	$("#ping_results").append("<tr class='loader'><td colspan='3'><div class='uk-text-center'><div uk-spinner></div></div></td></tr>");
 	$.get("https://ip2whois.ru/api/traceroute/ping/"+check_loc+"/"+check_list[counter],function(data){
@@ -143,11 +144,316 @@ function check_domain2(check_loc, protocol, check_list, counter = 0) {
 	});
 }
 
+
+function ping_new(host,path,callback) {
+	var start = new Date();
+		$.ajax({
+			url: host+"/"+path+"?q="+start.getTime(),
+			data: {},
+			crossDomain: true,
+			timeout: 3000,
+			success: function(){
+				var end = new Date();
+				callback((end.getTime() - start.getTime()-2), host);
+			},
+			error: function(xhr, statusText, err){
+				var end = new Date();
+				callback((end.getTime() - start.getTime())+" "+err, host);
+			}
+		});
+			
+}
+function ping_callback(data,id) {
+	$("#latency_ping").html(data +" ms");
+	ping_diff = ping_diff+data;
+	if(data > 100) {
+		$("#latency_ping").css("color","#a61818");
+	} else if(data > 70 && data <=100) {
+		$("#latency_ping").css("color","#ff0000");
+	} else if(data <=70 && data > 40) {
+		$("#latency_ping").css("color","#d7ac34");
+	} else {
+		$("#latency_ping").css("color","#44a618");
+	}
+	ping_in_progress=false;
+}
+
+const delay = ms => new Promise(res => setTimeout(res, ms));
+var speedtext,ping_diff=0,speed_started=false,ping_in_progress=false,last_sp=0,start_speedtest,total_percent=0;
+const count_try = 4;
+function updateProgress(rec,fsize=1) {
+	if(rec !=0) {
+		var percent = ((rec/fsize)*100).toFixed(1);
+		if(percent % 20 == 0.0) {
+			last_sp = performance.now();
+			var speed_current = ((rec*8)/(1024*1024*((last_sp - start_speedtest)/1000))).toFixed(0);
+			$('#progress_speed_text').html(speed_current+' Mbps');
+		}
+		$('#progress_speed').attr("stroke-dashoffset",(261 - (261*(total_percent+percent/count_try)/100).toFixed(0))+'px');
+	} else {
+		total_percent = 0;
+	}
+}
+
+async function downloadWithProgress(url, expectedSize) {
+  const startTime = start_speedtest = performance.now();
+
+  const response = await fetch(url + "&cachedrop=" + Math.random());
+  const reader = response.body.getReader();
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+		total_percent = total_percent + 100/count_try;
+		break;
+	}
+
+    received += value.length;
+    if (expectedSize) {
+      updateProgress(received, expectedSize);
+    }
+  }
+
+  const endTime = performance.now();
+  const duration = (endTime - startTime) / 1000;
+  return { duration, bytes: received };
+}
+
+async function autoSelectSize() {
+  //speedtext.innerText = "Calibrating…";
+  updateProgress(0);
+
+  const testUrl = speedtest_url + "testfile512k.bin?size=small";
+  const result = await downloadWithProgress(testUrl);
+
+  const speedMbps = (result.bytes * 8) / (1024 * 1024 * (result.duration-(ping_diff/1000)));
+  if (speedMbps < 20) return 1 * 1024 * 1024;
+  if (speedMbps < 45) return 2 * 1024 * 1024; 
+  if (speedMbps < 100) return 5 * 1024 * 1024; 
+  if (speedMbps < 200) return 10 * 1024 * 1024; 
+  if (speedMbps < 400) return 25 * 1024 * 1024; 
+  return 50 * 1024 * 1024;
+}
+async function runSpeedTest() {
+	if(!speed_started) {
+		speed_started = true;
+  speedtext.innerText = "Preparing…";
+  $("#speedtestbutton").html("Processing..");
+  $("#speedtestbutton").addClass("disabled");
+$('#dl_speed').html('<svg width="200" height="200" viewBox="-12.875 -12.875 128.75 128.75" version="1.1" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(-90deg)">'
+    +'<circle r="41.5" cx="51.5" cy="51.5" fill="transparent" stroke="#ffffff" stroke-width="2"></circle>'
+    +'<circle id="progress_speed" r="41.5" cx="51.5" cy="51.5" stroke="#007bff" stroke-width="6" stroke-linecap="round" stroke-dashoffset="261px" fill="transparent" stroke-dasharray="260.62px"></circle>'
+    +'<text x="20px" y="54px" fill="#000000" font-size="12px" font-weight="bold" style="transform:rotate(90deg) translate(0px, -99px)" id="progress_speed_text">Preparing</text>'
+  +'</svg>');
+  updateProgress(0);
+  $("#latency_ping_text").html("RTT to Cloudflare*");
+  for (let i = 0; i < count_try; i++) {
+	ping_new("https://"+site,"testbandwidth/latency.ttf",ping_callback);
+	ping_in_progress=true;
+	 while(ping_in_progress) {
+		await delay(500);
+	 }
+  }
+  ping_diff = (ping_diff/count_try).toFixed(2);
+$("#latency_ping").html("Avg "+ ping_diff +" ms");
+if(ping_diff > 100) {
+	$("#latency_ping").css("color","#a61818");
+} else if(ping_diff > 70 && ping_diff <=100) {
+	$("#latency_ping").css("color","#ff0000");
+} else if(ping_diff <=70 && ping_diff > 40) {
+	$("#latency_ping").css("color","#d7ac34");
+} else {
+	$("#latency_ping").css("color","#44a618");
+}
+
+  var targetSize = await autoSelectSize();
+  targetSize = await autoSelectSize(); //temporary fix?
+	const filetest = targetSize/(1024*1024);
+  //speedtext.innerText = `Testing speed (${(targetSize / 1024 / 1024).toFixed(1)} MB)…`;
+  updateProgress(0);
+  var tobytes=0,speed_t=0,dur_t=0,mbps;
+  const url = speedtest_url + `testfile`+filetest+`m.bin?size=${targetSize}`;
+  for (let i = 0; i < count_try; i++) {
+	
+	 current_rep = i;
+  const result = await downloadWithProgress(url, targetSize);
+	dur_t = dur_t + result.duration;
+	tobytes = tobytes + result.bytes;
+	mbps = (result.bytes * 8) / (1024 * 1024 * result.duration);
+	$('#progress_speed_text').html(mbps.toFixed(0)+' Mbps');
+	//$('#progress_speed').attr("stroke-dashoffset",(261 - ((261*i)/count_try).toFixed(0))+'px');
+  }
+  mbps = (tobytes * 8) / (1024 * 1024 * dur_t);
+	const sizedlmb = tobytes/(1024*1024);
+  speedtext.innerText =
+    `Speed: ${mbps.toFixed(2)} Mbps\nSize: ${sizedlmb.toFixed(2)} MiBytes`;
+  $("#speedtestbutton").html("Start");
+  $("#speedtestbutton").removeClass("disabled");
+  ping_diff=0;
+	speed_started = false;
+	total_percent = 0;
+	} else {
+		alert('Test already started! Wait for complete it.');
+	}
+}
+
+async function ping_test_rtt() {
+	  $("#latency_ping_text").html("Ping CF");
+  for (let i = 0; i < count_try; i++) {
+	ping_new("https://"+site,"testbandwidth/latency.ttf",ping_callback);
+	ping_in_progress=true;
+	 while(ping_in_progress) {
+		await delay(500);
+	 }
+  }
+  ping_diff = (ping_diff/count_try).toFixed(2);
+$("#latency_ping").html("Avg "+ ping_diff +" ms");
+if(ping_diff > 100) {
+	$("#latency_ping").css("color","#a61818");
+} else if(ping_diff > 70 && ping_diff <=100) {
+	$("#latency_ping").css("color","#ff0000");
+} else if(ping_diff <=70 && ping_diff > 40) {
+	$("#latency_ping").css("color","#d7ac34");
+} else {
+	$("#latency_ping").css("color","#44a618");
+}
+}
+
+function getClientInfo() {
+  const info = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    languages: navigator.languages,
+
+    screen: {
+      width: window.screen.width,
+      height: window.screen.height,
+      availWidth: window.screen.availWidth,
+      availHeight: window.screen.availHeight,
+      colorDepth: window.screen.colorDepth,
+      pixelRatio: window.devicePixelRatio
+    },
+
+    connection: navigator.connection ? {
+      effectiveType: navigator.connection.effectiveType,
+      downlink: navigator.connection.downlink,
+      rtt: navigator.connection.rtt,
+      saveData: navigator.connection.saveData
+    } : null,
+
+    gpu: getAccurateGPU()
+  };
+ const userAgent = navigator.userAgent;
+  if (userAgent.indexOf("Chrome") > -1 && userAgent.indexOf("Edge") === -1) {
+    info.browserName = "Chrome";
+  } else if (userAgent.indexOf("Firefox") > -1) {
+    info.browserName = "Firefox";
+  } else if (userAgent.indexOf("Safari") > -1 && userAgent.indexOf("Chrome") === -1) {
+    info.browserName = "Safari";
+  } else if (userAgent.indexOf("Edge") > -1) {
+    info.browserName = "Edge";
+  } else if (userAgent.indexOf("MSIE") > -1 || userAgent.indexOf("Trident") > -1) {
+    info.browserName = "Internet Explorer";
+  } else {
+    info.browserName = "Unknown";
+  }
+  return info;
+}
+function getAccurateGPU() {
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+  if (!gl) return null;
+
+  const ext = gl.getExtension("WEBGL_debug_renderer_info");
+
+  let vendor = ext
+    ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+    : gl.getParameter(gl.VENDOR);
+
+  let renderer = ext
+    ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+    : gl.getParameter(gl.RENDERER);
+
+  return {
+    vendor: normalizeVendor(vendor),
+    model: cleanGPU(renderer),
+    rawVendor: vendor,
+    rawModel: renderer
+  };
+}
+
+function cleanGPU(str) {
+  if (!str) return null;
+  str = str.trim();
+  const adrenoMatch = str.match(/adreno[\s\-_]*(\(tm\))?\s*\d+/i);
+  if (adrenoMatch) {
+    return adrenoMatch[0]
+      .replace(/\(tm\)/i, "TM")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  const angleMatch = str.match(/,\s*([^()]+?)\s*(\(|$)/);
+  if (angleMatch) return angleMatch[1].trim();
+  const generic = str.match(/[A-Za-z0-9()_\- ]+/);
+  if (generic) return generic[0].trim();
+
+  return str;
+}
+function normalizeVendor(vendorStr) {
+  if (!vendorStr) return null;
+  vendorStr = vendorStr.trim();
+
+  const match = vendorStr.match(/\(([^)]+)\)/);
+  if (match) {
+    return match[1].trim(); 
+  }
+
+  if (/google\s+inc/i.test(vendorStr)) {
+    return null; 
+  }
+
+  if (/nvidia/i.test(vendorStr)) return "NVIDIA";
+  if (/amd|ati/i.test(vendorStr)) return "AMD";
+  if (/intel/i.test(vendorStr)) return "Intel";
+  if (/qualcomm/i.test(vendorStr)) return "Qualcomm";
+  if (/apple/i.test(vendorStr)) return "Apple";
+
+  return vendorStr;
+}
 $('a[data-toggle="tab"]').on('click', function (e) {
   if(e.target.id == "hardware_list-tab") {
 	  if($('.hardware_info').html() == "") {
 		  chrome.system.cpu.getInfo(function(data) {
 			$('.hardware_info').append("<tr><td>Processor:</td><td>"+data.modelName+" x "+data.numOfProcessors+"</td></tr>");
+			
+			var arg = getClientInfo();
+			if(typeof arg.gpu !== "undefined") {
+					$(".hardware_info").append("<tr><td>GPU:</td><td>"+arg.gpu.model+"</td></tr>");
+					$(".hardware_info").append("<tr><td>GPU:</td><td><img src='https://cdn.ninja/ip2whois/img/icons/"+arg.gpu.vendor.toLowerCase()+".svg' title='"+arg.gpu.vendor+"' style='max-height:20px;max-width:80px;'> "+arg.gpu.vendor+"</td></tr>");
+				}
+
+				if(typeof arg.connection !== "undefined" && arg.connection != null) {
+					if(typeof arg.connection.effectiveType !== "undefined") {
+						if(arg.connection.effectiveType == "4g") {
+							arg.connection.effectiveType = "4G/Wifi/Cable";
+						}
+						$(".hardware_info").append("<tr><td>Connection:</td><td>"+arg.connection.effectiveType+"</td></tr>");
+					} else {
+						$(".hardware_info").append("<tr><td>Connection:</td><td>Unsupported</td></tr>");
+					}
+					if(typeof arg.connection.effectiveType !== "undefined") {
+						$(".hardware_info").append("<tr><td id='latency_ping_text'>Ping:</td><td id='latency_ping'>"+arg.connection.rtt+" ms</td></tr>");
+					} else {
+						$(".hardware_info").append("<tr><td>RTT:</td><td id='latency_ping'>Process.</td></tr>");
+					}
+				} else {
+					$(".hardware_info").append("<tr><td>Connection:</td><td>Unsupported</td></tr>");
+					$(".hardware_info").append("<tr><td>Ping:</td><td id='latency_ping'>Process.</td></tr>");
+				}
+				ping_test_rtt();
+				speedtest_url = "https://"+site+"/testbandwidth/"; 
 		  });
 		  chrome.system.memory.getInfo(function(data) {
 			$('.hardware_info').append("<tr><td>Memory:</td><td>total: "+bytesToSize(data.capacity)+"<br/> free: "+bytesToSize(data.availableCapacity)+"</td></tr>");
