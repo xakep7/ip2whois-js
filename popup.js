@@ -483,8 +483,8 @@ $('a[data-toggle="tab"]').on('click', function (e) {
 		   headers:{'Accept': "application/json"}
 		});
 		if($("#http_results").html() == "") {
-			var host = $("#ping_list-tab").attr("host-name");
-			var proto = $("#ping_list-tab").attr("host-proto");
+			var host = $("#http-tab").attr("host-name");
+			var proto = $("#http-tab").attr("host-proto");
 			$.get("https://ip2whois.ru/api/testpoints",function(data){
 				if(data.success) {
 					check_domain2(host, proto, data.points, 0);
@@ -517,8 +517,8 @@ chrome.tabs.query({
 	if(proto[0] == "http" || proto[0] == "https") {
 		var url = proto[1].split("/");
 		url[0] = url[0].replace(":","");
-		$("#ping_list-tab").attr("host-name",url[2]);
-		$("#ping_list-tab").attr("host-proto",proto[0]);
+		$("#http-tab").attr("host-name",url[2]);
+		$("#http-tab").attr("host-proto",proto[0]);
 		$(this).show();
 		$("#search").html("<div class='uk-text-center'><div uk-spinner></div></div>");
 		if(/^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/.test(url[2])) {
