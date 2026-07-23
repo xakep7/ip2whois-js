@@ -23,4 +23,4 @@ For any bugs or request - send mail to bugfix[at]ip2whois.ru
 
 # Features screen
 ![](https://selcdn.x-api.net/ip2whois/img/extension/f2Y6BLFK7.png)
-![](https://selcdn.x-api.net/ip2whois/img/extension/vHlBYSVS7.png)
+![](https://selcdn.x-api.net/ip2whois/img/extension/QRKWHFSwPi0jctTf67RS.jpg)
