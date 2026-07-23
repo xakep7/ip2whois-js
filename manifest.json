@@ -1,7 +1,7 @@
 {
   "name": "Ip2Whois",
   "description": "Get whois info for sites, flags and more. Early Alpha.",
-  "version": "0.5.0",
+  "version": "0.5.1",
    "homepage_url": "https://ip2whois.ru",
   "manifest_version": 3,
   "host_permissions": [
