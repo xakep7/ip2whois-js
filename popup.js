@@ -104,47 +104,6 @@ function bytesToSize(bytes) {
 }
 var type = "domain";
 var site = "ip2whois.ru";
-function check_domain(check_loc, check_list, counter = 0) {
-	$("#ping_results").append("<tr class='loader'><td colspan='3'><div class='uk-text-center'><div uk-spinner></div></div></td></tr>");
-	$.get("https://ip2whois.ru/api/traceroute/ping/"+check_loc+"/"+check_list[counter],function(data){
-		$(".loader").remove();
-		if(data.success) {
-			$("#ping_results").append("<tr><td><img src='"+data.loc_img+"' title='"+data.loc_dc+"' width='16'/> "+data.name+":</td><td>"+data.rtt_statistics.avg.value+" ms<br>"+data.rtt_summary.packets_transmitted+" / "+data.rtt_summary.packets_received+"</td><td>"+data.icmp_sequences[0].target_ip+"</td></tr>");
-		} else {
-			$("#ping_results").append("<tr><td><img src='"+data.loc_img+"' title='"+data.loc_dc+"' width='16'/> "+data.name+":</td><td colspan='2'>"+data.message+"</td></tr>");
-		}
-		if(counter != check_list.length-1) check_domain(check_loc, check_list, counter+1);
-	});
-}
-function check_domain2(check_loc, protocol, check_list, counter = 0) {
-	$("#http_results").append("<tr class='loader'><td colspan='3'><div class='uk-text-center'><div uk-spinner></div></div></td></tr>");
-	$.post("https://ip2whois.ru/api/traceroute/get/"+check_loc+"/"+check_list[counter],{proto:protocol},function(data){
-		$(".loader").remove();
-		if(data.success) {
-			if(data.http_code == 0) data.http_code = data.http_code + " Failed";
-			if(data.http_code == 200) data.http_code = data.http_code + " OK";
-			if(data.http_code == 301) data.http_code = data.http_code + " Moved Permanently";
-			if(data.http_code == 302) data.http_code = data.http_code + " Found";
-			if(data.http_code == 304) data.http_code = data.http_code + " Not Modified";
-			if(data.http_code == 307) data.http_code = data.http_code + " Temporary Redirect";
-			if(data.http_code == 308) data.http_code = data.http_code + " Permanent Redirect";
-			if(data.http_code == 400) data.http_code = data.http_code + " Bad Request";
-			if(data.http_code == 401) data.http_code = data.http_code + " Unauthorized";
-			if(data.http_code == 403) data.http_code = data.http_code + " Forbidden";
-			if(data.http_code == 404) data.http_code = data.http_code + " Not Found";
-			if(data.http_code == 500) data.http_code = data.http_code + " Internal Server Error";
-			if(data.http_code == 502) data.http_code = data.http_code + " Bad Gateway";
-			if(data.http_code == 503) data.http_code = data.http_code + " Service Unavailable";
-			if(data.http_code == 504) data.http_code = data.http_code + " Gateway Timeout";
-			$("#http_results").append("<tr><td><img src='"+data.loc_img+"' title='"+data.loc_dc+"' width='16'/> "+data.name+":</td><td>"+data.http_code+"</td><td>"+data.primary_ip+"</td></tr>");
-		} else {
-			$("#http_results").append("<tr><td><img src='"+data.loc_img+"' title='"+data.loc_dc+"' width='16'/> "+data.name+":</td><td colspan='2'>"+data.message+"</td></tr>");
-		}
-		if(counter != check_list.length-1) check_domain2(check_loc, protocol, check_list, counter+1);
-	});
-}
-
-
 function ping_new(host,path,callback) {
 	var start = new Date();
 		$.ajax({
@@ -485,14 +444,107 @@ $('a[data-toggle="tab"]').on('click', function (e) {
 		if($("#http_results").html() == "") {
 			var host = $("#http-tab").attr("host-name");
 			var proto = $("#http-tab").attr("host-proto");
-			$.get("https://ip2whois.ru/api/testpoints",function(data){
+			$.post("https://ip2whois.ru/api/test/start/0/"+host,{proto:proto},function(data){
 				if(data.success) {
-					check_domain2(host, proto, data.points, 0);
+					$.each(data.serverlist, function(_,v) {
+						var domain = new URL(v.country_img).hostname;
+						if(type==0) {
+							$("#http_results").append("<tr id='"+v.name+"'><td><img src='"+v.country_img+"' width='16' class='m-2'/> "+v.city+"</td><td id='loader' colspan='7' style='text-align:center;'><img src='https://"+domain+"/ip2whois/img/tail-spin.svg' width='32'></td></td>");
+						} else if(type==1) {
+							$("#http_results").append("<tr id='"+v.name+"'><td><img src='"+v.country_img+"' width='16' class='m-2'/> "+v.city+"</td><td id='loader' colspan='3' style='text-align:center;'><img src='https://"+domain+"/ip2whois/img/tail-spin.svg' width='32'></td></td>");
+						} else {
+							$("#http_results").append("<tr id='"+v.name+"'><td><img src='"+v.country_img+"' width='16' class='m-2'/> "+v.city+"</td><td id='loader' colspan='2' style='text-align:center;'><img src='https://"+domain+"/ip2whois/img/tail-spin.svg' width='32'></td></td>");
+						}
+					});
+					__get_info(data.testid,0,"#http_results");
 				}
 			});
 		}
   }
-})
+});
+var __get_info = function(testid,type,elem) {
+	$.get("https://ip2whois.ru/api/test/status/"+testid,function(data) {
+		$('[data-toggle="tooltip"]').tooltip();
+		if(data.success) {
+			if(data.results != null) {
+				__build_results(data.results,type,elem);
+			}
+			if(!data.ended) setTimeout(function() { __get_info(testid,type,elem); },1000);
+		} else {
+			alert("Error While collecting data about test.<br>"+data.message);
+		}
+	});
+}
+var __build_results = function(data,type,elem) {
+		var color = "uk-text-success";
+		$.each(data, function(_,v) {
+			if(typeof $(elem +" #"+v.name+" #loader").html() !== "undefined") {
+				$(elem +" #"+v.name+" #loader").remove();
+				if(v.success) {
+					if(type == 0) {
+						if(v.http_code >= 200 && v.http_code <=308) color = "uk-text-success";
+						else if(v.http_code >= 400 && v.http_code <=404) color = "uk-text-warning";
+						else color = "uk-text-danger";
+						if(v.http_code == 0) v.http_code = v.http_code + " Failed";
+						if(v.http_code == 200) v.http_code = v.http_code + " OK";
+						if(v.http_code == 301) v.http_code = v.http_code + " Moved Permanently<br>" + v.redirect_url;
+						if(v.http_code == 302) v.http_code = v.http_code + " Found<br>" + v.redirect_url;
+						if(v.http_code == 304) v.http_code = v.http_code + " Not Modified";
+						if(v.http_code == 307) v.http_code = v.http_code + " Temporary Redirect<br>" + v.redirect_url;
+						if(v.http_code == 308) v.http_code = v.http_code + " Permanent Redirect<br>" + v.redirect_url;
+						if(v.http_code == 400) v.http_code = v.http_code + " Bad Request";
+						if(v.http_code == 401) v.http_code = v.http_code + " Unauthorized";
+						if(v.http_code == 403) v.http_code = v.http_code + " Forbidden";
+						if(v.http_code == 404) v.http_code = v.http_code + " Not Found";
+						if(v.http_code == 500) v.http_code = v.http_code + " Internal Server Error";
+						if(v.http_code == 502) v.http_code = v.http_code + " Bad Gateway";
+						if(v.http_code == 503) v.http_code = v.http_code + " Service Unavailable";
+						if(v.http_code == 504) v.http_code = v.http_code + " Gateway Timeout";
+						var connection_time = Number(v.total_time*1000).toFixed(2);
+						$(elem +" #"+v.name).append("<td class='"+color+"'>"+v.http_code+"</td>");
+						$(elem +" #"+v.name).append("<td>"+v.primary_ip+"</td>");
+					} else if(type == 1) {
+						if(v.rtt_summary.packets_received == v.rtt_summary.packets_transmitted) color = "uk-text-success";
+						else if(v.rtt_summary.packets_received == v.rtt_summary.packets_transmitted-1) color = "uk-text-warning";
+						else color = "uk-text-danger";
+						$(elem +" #"+v.name).append("<td class='"+color+"'>"+v.rtt_summary.packets_transmitted+" / "+v.rtt_summary.packets_received+"</td>");
+						$(elem +" #"+v.name).append("<td>"+v.rtt_statistics.avg.value+" ms ("+Number(299792458/1.55/1000000*v.rtt_statistics.avg.value/2).toFixed(2)+" Km)</td>");
+						$(elem +" #"+v.name).append("<td>"+v.icmp_sequences[0].target_ip+"</td>");
+					} else if(type == 2) {
+						$(elem +" #"+v.name).append("<td>"+v.path+"</td>");
+						$(elem +" #"+v.name).append("<td><table id='traceroute-"+v.name+"'></table>");
+						var count = 0;
+						$.each(v.tracert, function(_, h){
+							if(count !=0) {
+								$("#traceroute-"+v.name).append("<tr><td>"+count+".</td><td>"+h.ptr+" ("+h.ip+")</td><td>"+h.ping+" ms.</td></tr>");
+							}
+							count++;
+						});
+					} else if(type == 3) {
+						$(elem +" #"+v.name).append("<td id='dns-"+v.name+"'></td>");
+                        if(typeof v.records !== "undefined") {
+                            $(elem +" #"+v.name).append("<td>"+time_s(v.records[0].ttl)+" s</td>");
+                            var count = 0;
+                            $.each(v.records, function(_, h){
+                                if(count !=0) {
+                                    if(count%4 == 0) $("#dns-"+v.name).append(",</br>"+h.ip);
+                                    else $("#dns-"+v.name).append(", "+h.ip);
+                                } else {
+                                    $("#dns-"+v.name).append(h.ip);
+                                }
+                                count++;
+                            });
+                        } else {
+                            $(elem +" #"+v.name).append("<td>Timeout</td>");
+                            $("#dns-"+v.name).append("No records");
+                        }
+					}
+				} else {
+					$(elem +" #"+v.name).append("<td colspan='2' class='text-danger'>Failed: "+v.message+"</td>");
+				}
+			}
+		});
+}
 chrome.tabs.query({
     active: true,
     lastFocusedWindow: true
