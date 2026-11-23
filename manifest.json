@@ -1,8 +1,8 @@
 {
   "name": "Ip2Whois",
-  "description": "Get whois info for sites, flags and more. Early Alpha.",
-  "version": "0.5.1",
-   "homepage_url": "https://ip2whois.ru",
+  "description": "Get whois info for sites, flags and more. Early Beta.",
+  "version": "0.5.2",
+  "homepage_url": "https://ip2whois.ru",
   "manifest_version": 3,
   "host_permissions": [
     "*://ip2whois.ru/*",
@@ -11,29 +11,39 @@
     "*://cdnx.su/*"
   ],
   "permissions": [
-    "storage", "activeTab", "scripting", "tabs", "webRequest","unlimitedStorage","system.display","system.cpu","system.memory","system.storage"
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "webRequest",
+    "system.display",
+    "system.cpu",
+    "system.memory",
+    "system.storage"
   ],
   "background": {
-    "service_worker": "background.js", 
-	"type": "module" 
-	},
-	"minimum_chrome_version": "92",
-	"action": {
-		"default_title": "Ip2Whois",
-		"default_icon": {
-		  "16": "images/icon16.png",
-		  "24": "images/icon24.png",
-		  "32": "images/icon32.png",
-		  "64": "images/icon64.png",
-		  "128": "images/icon128.png"
-		},
-		"default_popup": "popup.html"
-	}, 
-	"icons": {
-		  "16": "images/icon16.png",
-		  "24": "images/icon24.png",
-		  "32": "images/icon32.png",
-		  "64": "images/icon64.png",
-		  "128": "images/icon128.png"
-	  }
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "minimum_chrome_version": "92",
+  "action": {
+    "default_title": "Ip2Whois",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "24": "images/icon24.png",
+      "32": "images/icon32.png",
+      "64": "images/icon64.png",
+      "128": "images/icon128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "24": "images/icon24.png",
+    "32": "images/icon32.png",
+    "64": "images/icon64.png",
+    "128": "images/icon128.png"
+  }
 }
